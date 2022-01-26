@@ -1,0 +1,18 @@
+.LoaderIcon {
+  display: block;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto;
+  fill: #06bcee;
+  stroke: none;
+  stroke-opacity: 0.125;
+}
+
+.LoaderIcon svg {
+  fill: #212121 !important;
+}
+
+.Wrapper {
+  display: flex;
+  justify-content: center;
+}
