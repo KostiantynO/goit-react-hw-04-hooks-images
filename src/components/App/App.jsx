@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import { AiOutlineClose } from 'react-icons/ai';
-import { ImageApi } from 'apis';
+import { API } from 'apis';
 import { Searchbar, ImageGallery, Loader, Button, Modal } from 'components';
 
 import 'react-loading-skeleton/dist/skeleton.css';
@@ -27,23 +27,30 @@ export const App = () => {
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState({});
   const isFirstRender = useRef(true);
+  const galleryRef = useRef(null);
+
+  const handleSearchSubmit = newQuery => {
+    setQuery(newQuery);
+    setPage(1);
+  };
 
   useEffect(() => {
-    if (isFirstRender.current) {
-      return;
-    }
+    if (isFirstRender.current) return;
 
     const getImagesOnSearchSubmit = async () => {
       setStatus(PENDING);
-      try {
-        const { hits, totalHits } = await ImageApi.fetchImages({ query, page });
 
-        if (page > 1) {
-          setImages(images => [...images, ...hits]);
-        } else {
+      try {
+        const { hits, totalHits } = await API.fetchImages(query, page);
+
+        if (page === 1) {
           setImages(hits);
           setTotalHits(totalHits);
+        } else {
+          setImages(images => [...images, ...hits]);
         }
+
+        await API.imagesComplete();
 
         setStatus(RESOLVED);
       } catch (error) {
@@ -58,21 +65,14 @@ export const App = () => {
 
   useEffect(() => (isFirstRender.current = false), []);
 
-  const handleSearchSubmit = newQuery => {
-    if (query !== newQuery) {
-      setQuery(newQuery);
-      setPage(1);
-    }
-  };
-
   // derived data
   const hasImages = images?.length > 0;
-  const isPending = status === PENDING;
+  const showSkeleton = !hasImages;
+  const isLoading = status === PENDING;
   const isError =
-    (status === REJECTED || status === RESOLVED) && (error || !hasImages);
-  const arrayToRender = hasImages ? images : isPending ? skeletonArray : [];
+    error || status === REJECTED || (status === RESOLVED && !hasImages);
+  const arrayToRender = hasImages ? images : isLoading ? skeletonArray : [];
   const hasNextPage = totalHits > page * perPage;
-
   const needToOpenModal = showModal && Object.keys(showModal).length > 0;
 
   return (
@@ -80,26 +80,30 @@ export const App = () => {
       <Searchbar onSubmit={handleSearchSubmit} status={status} />
 
       <ImageGallery
-        showSkeleton={!hasImages}
+        ref={node => (galleryRef.current = node)}
         images={arrayToRender}
+        showSkeleton={showSkeleton}
         onShowModal={setShowModal}
       />
-      {isPending && <Loader />}
+
+      {isLoading && <Loader />}
 
       {isError && (
         <p className={css.ErrorMessage}>
-          Found 0 results for <b>{query}</b> Please try another search!
+          Found {totalHits} results for <b>"{query}"</b> Please try new search!
         </p>
       )}
 
       {hasImages && (
         <>
-          <Button
-            hasNextPage={hasNextPage}
-            onLoadMoreImages={() => setPage(page => page + 1)}
-          >
-            Load More
-          </Button>
+          {!isLoading && (
+            <Button
+              hasNextPage={hasNextPage}
+              onLoadMoreImages={() => setPage(page => page + 1)}
+            >
+              Load More
+            </Button>
+          )}
 
           {needToOpenModal && (
             <Modal onClose={() => setShowModal({})}>
